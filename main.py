@@ -101,7 +101,7 @@ async def join_chat(sheet, bot, row_number, link):
     phone_number, api_id, api_hash = bot[0], bot[2], bot[3]
     acc = Client(f"{SESSIONS_FOLDER}{phone_number}", api_id=api_id, api_hash=api_hash)
     await acc.start()
-    sleep(random.randint(0, JOINING_DELAY))
+    await asyncio.sleep(random.randint(0, JOINING_DELAY))
     chat_info = await acc.join_chat(link)
     await acc.stop()
     chat_id = chat_info.id
@@ -147,9 +147,9 @@ async def bot_session(sheet, chat_id, bot, message, row_number):
     acc = Client(f"{SESSIONS_FOLDER}{phone_number}", api_id=api_id, api_hash=api_hash)
     try:
         await acc.start()
-        sleep(random.randint(0, START_CHATTING_DELAY))
+        await asyncio.sleep(random.randint(0, START_CHATTING_DELAY))
         await acc.send_message(chat_id, message)
-        sleep(STOP_CHATTING_DELAY)
+        await asyncio.sleep(STOP_CHATTING_DELAY)
         await acc.stop()
         status = {'values': [['Message sent']]}
     except Exception as ex:
