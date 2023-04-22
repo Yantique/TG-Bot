@@ -130,6 +130,10 @@ async def join_chat(sheet, bot, row_number, link):
         chat_id = chat_info.id
     except errors.exceptions.bad_request_400.InviteHashExpired:
         chat_id = 'Invalid link'
+    except errors.exceptions.bad_request_400.UserAlreadyParticipant:
+        chat_info = await acc.get_chat(link)
+        chat_id = chat_info.id
+
     await acc.stop()
     if chat_id != 'Invalid link':
         status = {
