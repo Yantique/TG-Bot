@@ -24,6 +24,7 @@ START_CHATTING_DELAY = 10  # Test param (value = 72000)
 STOP_CHATTING_DELAY = 15
 ROWS = 1000
 DEFAULT_NAME = 'Artem'
+PROXY_LIST = []
 
 
 def main():
@@ -43,7 +44,8 @@ def main():
     sheet = service.spreadsheets()
 
     while True:
-        if datetime.now().strftime("%H:%M") == START_TIME or True:
+        if datetime.now().strftime("%H:%M") == START_TIME or True:  # Remove true in release version
+            get_proxies(sheet)
             auth(sheet)
             asyncio.run(acc_distribution(sheet))
             asyncio.run(start_chatting(sheet))
@@ -59,7 +61,8 @@ def auth(sheet):
     for i, row in enumerate(rows[1:]):
         phone_number, password, api_id, api_hash = row[:4]
         username, first_name, last_name, bio, photo = row[4:9]
-        acc = Client(f"{SESSIONS_FOLDER}{phone_number}", api_id=api_id, api_hash=api_hash)
+        proxy = transform_proxy(random.choice(PROXY_LIST))
+        acc = Client(f"{SESSIONS_FOLDER}{phone_number}", api_id=api_id, api_hash=api_hash, proxy=proxy)
         print("Account #1")
         print(f'Phone number: +{phone_number}')
         print(f'Password: {password if len(password) > 0 else None}')
@@ -73,7 +76,7 @@ def auth(sheet):
             except errors.exceptions.bad_request_400.UsernameNotModified:
                 status['values'].append(['OK'])
             acc.update_profile(first_name=first_name, last_name=last_name, bio=bio)
-    sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="accounts!J1", valueInputOption="RAW",
+    sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="accounts!K1", valueInputOption="RAW",
                           body=status).execute()
 
 
@@ -99,7 +102,8 @@ async def acc_distribution(sheet):
 
 async def join_chat(sheet, bot, row_number, link):
     phone_number, api_id, api_hash = bot[0], bot[2], bot[3]
-    acc = Client(f"{SESSIONS_FOLDER}{phone_number}", api_id=api_id, api_hash=api_hash)
+    proxy = transform_proxy(random.choice(PROXY_LIST))
+    acc = Client(f"{SESSIONS_FOLDER}{phone_number}", api_id=api_id, api_hash=api_hash, proxy=proxy)
     await acc.start()
     await asyncio.sleep(random.randint(0, JOINING_DELAY))
     chat_info = await acc.join_chat(link)
@@ -144,7 +148,8 @@ async def start_chatting(sheet):
 async def bot_session(sheet, chat_id, bot, message, row_number):
     phone_number, api_id, api_hash, name = bot[0], bot[2], bot[3], bot[5]
     message = message.replace(DEFAULT_NAME, name)
-    acc = Client(f"{SESSIONS_FOLDER}{phone_number}", api_id=api_id, api_hash=api_hash)
+    proxy = transform_proxy(random.choice(PROXY_LIST))
+    acc = Client(f"{SESSIONS_FOLDER}{phone_number}", api_id=api_id, api_hash=api_hash, proxy=proxy)
     try:
         await acc.start()
         await asyncio.sleep(random.randint(0, START_CHATTING_DELAY))
@@ -164,6 +169,25 @@ def array_to_dict(messages):
     for row in messages:
         d[row[0]] = row[1]
     return d
+
+
+def transform_proxy(raw_proxy, scheme='http'):
+    username, password, hostname, port = raw_proxy.split('@')[0].split(':') + raw_proxy.split('@')[1].split(':')
+    proxy = {
+        "scheme": scheme,  # "socks4", "socks5" and "http" are supported
+        "hostname": hostname,
+        "port": int(port),
+        "username": username,
+        "password": password
+    }
+    return proxy
+
+
+def get_proxies(sheet):
+    cell_range = f'proxy!A1:B{ROWS}'
+    proxies = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
+    for proxy in proxies:
+        PROXY_LIST.append(proxy[0])
 
 
 if __name__ == '__main__':
