@@ -9,6 +9,7 @@ from pyrogram import Client
 from datetime import datetime
 from time import sleep
 
+import requests
 import asyncio
 import random
 import os.path
@@ -55,8 +56,12 @@ def main():
 
 
 def auth(sheet):
-    cell_range = f'accounts!A1:I{ROWS}'
+    cell_range = f'accounts!A1:K{ROWS}'
     rows = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values']
+    status = {'values': [['Validating'] * (len(rows) - 1)]}
+    sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="accounts!K2", valueInputOption="RAW",
+                          body=status).execute()
+    photos = {'values': [['Photo']]}
     status = {'values': [['Status']]}
     for i, row in enumerate(rows[1:]):
         phone_number, password, api_id, api_hash = row[:4]
@@ -66,16 +71,30 @@ def auth(sheet):
         print("Account #1")
         print(f'Phone number: +{phone_number}')
         print(f'Password: {password if len(password) > 0 else None}')
+        setup_errors = []
         with acc:
             print("Account is active")
             try:
                 acc.set_username(username)
-                status['values'].append(['OK'])
             except errors.exceptions.bad_request_400.UsernameOccupied:
-                status['values'].append(['Username is taken'])
+                setup_errors.append('Username is taken')
             except errors.exceptions.bad_request_400.UsernameNotModified:
-                status['values'].append(['OK'])
+                pass
             acc.update_profile(first_name=first_name, last_name=last_name, bio=bio)
+            if len(photo) > 0:
+                result = get_photo(photo)
+                if result == 'Success':
+                    acc.set_profile_photo(photo='temp/photo.jpg')
+                else:
+                    setup_errors.append(result)
+            if len(setup_errors) == 0:
+                status['values'].append(['OK'])
+            else:
+                status['values'].append([' / '.join(setup_errors)])
+            photos['values'].append([''])
+
+    sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="accounts!I1", valueInputOption="RAW",
+                          body=photos).execute()
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="accounts!K1", valueInputOption="RAW",
                           body=status).execute()
 
@@ -188,6 +207,22 @@ def get_proxies(sheet):
     proxies = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     for proxy in proxies:
         PROXY_LIST.append(proxy[0])
+
+
+def get_photo(link):
+    try:
+        response = requests.get(link)
+        if response.status_code == 200:
+            file_name = "photo.jpg"
+            with open(f"temp/{file_name}", 'wb') as file:
+                file.write(response.content)
+            return "Success"
+        else:
+            return "Download failed"
+    except requests.exceptions.MissingSchema:
+        return "Incorrect URL"
+    except requests.exceptions.ConnectionError:
+        return "Incorrect URL"
 
 
 if __name__ == '__main__':
