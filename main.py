@@ -194,9 +194,12 @@ async def bot_session(sheet, chat_id, bot, message, row_number):
         await asyncio.sleep(STOP_CHATTING_DELAY)
         await acc.stop()
         status = {'values': [['Message sent']]}
-    except Exception as ex:
-        print(ex)
-        status = {'values': [['Error']]}
+    except errors.exceptions.flood_420.SlowmodeWait:
+        status = {'values': [['Slow mode']]}
+    except errors.exceptions.forbidden_403.Forbidden:
+        status = {'values': [['Muted']]}
+    except errors.exceptions.not_acceptable_406.ChannelPrivate:
+        status = {'values': [['Banned']]}
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range=f"chats!E{row_number}", valueInputOption="RAW",
                           body=status).execute()
 
