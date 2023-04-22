@@ -125,21 +125,34 @@ async def join_chat(sheet, bot, row_number, link):
     acc = Client(f"{SESSIONS_FOLDER}{phone_number}", api_id=api_id, api_hash=api_hash, proxy=proxy)
     await acc.start()
     await asyncio.sleep(random.randint(0, JOINING_DELAY))
-    chat_info = await acc.join_chat(link)
+    try:
+        chat_info = await acc.join_chat(link)
+        chat_id = chat_info.id
+    except errors.exceptions.bad_request_400.InviteHashExpired:
+        chat_id = 'Invalid link'
     await acc.stop()
-    chat_id = chat_info.id
-    status = {
-        'valueInputOption': "RAW",
-        'data': [
-            {
-                'range': f"chats!B{row_number}:C{row_number}",
-                'values': [[chat_id, phone_number]]
-            },
-            {
-                'range': f"chats!E{row_number}",
-                'values': [['Waiting for mailing']]
-            }]
-    }
+    if chat_id != 'Invalid link':
+        status = {
+            'valueInputOption': "RAW",
+            'data': [
+                {
+                    'range': f"chats!B{row_number}:C{row_number}",
+                    'values': [[chat_id, phone_number]]
+                },
+                {
+                    'range': f"chats!E{row_number}",
+                    'values': [['Waiting for mailing']]
+                }]
+        }
+    else:
+        status = {
+            'valueInputOption': "RAW",
+            'data': [
+                {
+                    'range': f"chats!E{row_number}",
+                    'values': [['Invalid link']]
+                }]
+        }
     sheet.values().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=status).execute()
 
 
@@ -153,13 +166,14 @@ async def start_chatting(sheet):
     chats = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     sessions = []
     for row_number, row in enumerate(chats):
-        chat_id, bot_number, chat_type = row[1:4]
-        bot = None
-        for bot in bots:
-            if bot[0] == bot_number:
-                break
-        message = messages[chat_type]
-        sessions.append(asyncio.create_task(bot_session(sheet, chat_id, bot, message, row_number + 2)))
+        chat_id, bot_number, chat_type, status = row[1:]
+        if status == 'Waiting for mailing':
+            bot = None
+            for bot in bots:
+                if bot[0] == bot_number:
+                    break
+            message = messages[chat_type]
+            sessions.append(asyncio.create_task(bot_session(sheet, chat_id, bot, message, row_number + 2)))
     for session in sessions:
         await session
 
