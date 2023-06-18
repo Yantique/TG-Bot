@@ -49,6 +49,7 @@ def main():
             get_proxies(sheet)
             auth(sheet)
             asyncio.run(acc_distribution(sheet))
+            input('Wait')
             asyncio.run(start_chatting(sheet))
         else:
             sleep(30)
@@ -112,11 +113,15 @@ async def acc_distribution(sheet):
             bot = random.choice(bots)
             status['values'].append(['Waiting to join'])
             join_tasks.append(asyncio.create_task(join_chat(sheet, bot, row_number + 2, link)))
+
+            for task in join_tasks:
+                await task
+            join_tasks = []
         else:
             status['values'].append(['Waiting for mailing'])
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="chats!E1", valueInputOption="RAW", body=status).execute()
-    for task in join_tasks:
-        await task
+"""    for task in join_tasks:
+        await task"""
 
 
 async def join_chat(sheet, bot, row_number, link):
@@ -133,7 +138,6 @@ async def join_chat(sheet, bot, row_number, link):
     except errors.exceptions.bad_request_400.UserAlreadyParticipant:
         chat_info = await acc.get_chat(link)
         chat_id = chat_info.id
-
     await acc.stop()
     if chat_id != 'Invalid link':
         status = {
@@ -178,8 +182,11 @@ async def start_chatting(sheet):
                     break
             message = messages[chat_type]
             sessions.append(asyncio.create_task(bot_session(sheet, chat_id, bot, message, row_number + 2)))
-    for session in sessions:
-        await session
+            for session in sessions:
+                await session
+            session = []
+    """for session in sessions:
+        await session"""
 
 
 async def bot_session(sheet, chat_id, bot, message, row_number):
