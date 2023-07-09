@@ -14,11 +14,12 @@ import os.path
 
 
 # Global params
+SPREADSHEET_ID = '17tx5NNJUuPxUucoayn4nb2hx4dlC9vcreEUzYICCMsY'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SPREADSHEET_ID = '1xzDikfjhqYAiElgAfK4o0Z8e6Wf0RxD_yirg72sFAp8'
 ROWS = 1000
-START_CHATTING_DELAY = 10
-DELAY = 10  # 15 min
+START_CHATTING_DELAY = 30
+JOINING_DELAY = 120  # (2 min) задержка между вступлениями в группы
+DELAY = 300  # (15 min) задержка между повторными отправками в секундах
 DEFAULT_NAME = 'Artem'
 ACTIVE_ACCOUNTS = {}
 
@@ -81,6 +82,7 @@ def proxy_distribution(sheet):
 
 
 async def acc_distribution(sheet):
+    print("Starting to join groups")
     cell_range = f'chats!A1:E{ROWS}'
     chats = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     status = {'values': [[f'Status ({datetime.date(datetime.now())})']]}
@@ -91,6 +93,7 @@ async def acc_distribution(sheet):
         if len(bot) == 0:
             bot = random.choice(list(ACTIVE_ACCOUNTS.keys()))
             acc = ACTIVE_ACCOUNTS[bot]
+            await asyncio.sleep(random.randint(0, JOINING_DELAY))
             result = await acc.join_chat(link)
             if type(result) == int:
                 chat_ids['values'].append([result])
@@ -114,6 +117,7 @@ async def acc_distribution(sheet):
 
 
 async def setup_acc(sheet):
+    print("Starting to set up accounts")
     cell_range = f'accounts!A1:K{ROWS}'
     bots = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     photos = {'values': [['Photo']]}
