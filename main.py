@@ -45,6 +45,7 @@ async def auth(sheet):
         print(result, '\n')
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="accounts!K1", valueInputOption="RAW",
                           body=status).execute()
+    print('Authentication complete')
 
 
 def proxy_distribution(sheet):
@@ -153,7 +154,7 @@ async def send_messages(sheet):
         link = chat[0]
         acc = ACTIVE_ACCOUNTS[bot_number]
         name = await acc.get_my_name()
-        if status == 'Waiting for mailing':
+        if status == 'Waiting for mailing' or 'Message sent':
             await asyncio.sleep(random.randint(0, START_CHATTING_DELAY))
             result = await acc.send_message(link, messages[message_type].replace(DEFAULT_NAME, name))
             status = {'values': [[str(result)]]}
@@ -207,7 +208,6 @@ def main():
     while True:
         loop.run_until_complete(send_messages(sheet))
         sleep(DELAY)
-        break
 
 
 if __name__ == '__main__':
