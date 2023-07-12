@@ -156,9 +156,9 @@ async def send_messages(sheet):
     for row_number, chat in enumerate(chats):
         chat_id, bot_number, message_type, status = chat[1:]
         link = chat[0]
-        acc = ACTIVE_ACCOUNTS[bot_number]
-        name = await acc.get_my_name()
-        if status == 'Waiting for mailing' or 'Message sent':
+        if status == 'Waiting for mailing' or status == 'Message sent':
+            acc = ACTIVE_ACCOUNTS[bot_number]
+            name = await acc.get_my_name()
             await asyncio.sleep(random.randint(0, START_CHATTING_DELAY))
             result = await acc.send_message(link, messages[message_type].replace(DEFAULT_NAME, name))
             status = {'values': [[str(result)]]}
