@@ -14,14 +14,29 @@ import os.path
 
 
 # Global params
-SPREADSHEET_ID = '17tx5NNJUuPxUucoayn4nb2hx4dlC9vcreEUzYICCMsY'
+SPREADSHEET_ID = '1xzDikfjhqYAiElgAfK4o0Z8e6Wf0RxD_yirg72sFAp8'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 ROWS = 1000
 START_CHATTING_DELAY = 30
 JOINING_DELAY = 120  # (2 min) задержка между вступлениями в группы
-DELAY = 300  # (15 min) задержка между повторными отправками в секундах
+MAILING_DELAY = 900  # (15 min) задержка между повторными отправками в секундах
 DEFAULT_NAME = 'Artem'
 ACTIVE_ACCOUNTS = {}
+
+
+def setup(sheet):
+    global ROWS, START_CHATTING_DELAY, JOINING_DELAY, MAILING_DELAY, DEFAULT_NAME
+    cell_range = f'settings!A1:B{ROWS}'
+    rows = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
+    params = {}
+    for row in rows:
+        param, value = row
+        params[param] = value
+    ROWS = params["ROWS"]
+    START_CHATTING_DELAY = params["START_CHATTING_DELAY"]
+    JOINING_DELAY = params["JOINING_DELAY"]
+    MAILING_DELAY = params["MAILING_DELAY"]
+    DEFAULT_NAME = params["DEFAULT_NAME"]
 
 
 async def auth(sheet):
@@ -204,6 +219,7 @@ def main():
             token.write(creds.to_json())
     service = build('sheets', 'v4', credentials=creds)
     sheet = service.spreadsheets()
+    setup(sheet)
     proxy_distribution(sheet)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(auth(sheet))
@@ -211,7 +227,7 @@ def main():
     loop.run_until_complete(acc_distribution(sheet))
     while True:
         loop.run_until_complete(send_messages(sheet))
-        sleep(DELAY)
+        sleep(MAILING_DELAY)
 
 
 if __name__ == '__main__':
