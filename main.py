@@ -14,7 +14,7 @@ import os.path
 
 
 # Global params
-SPREADSHEET_ID = '1xzDikfjhqYAiElgAfK4o0Z8e6Wf0RxD_yirg72sFAp8'
+SPREADSHEET_ID = '17tx5NNJUuPxUucoayn4nb2hx4dlC9vcreEUzYICCMsY'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 ROWS = 1000
 START_CHATTING_DELAY = 30
@@ -32,10 +32,10 @@ def setup(sheet):
     for row in rows:
         param, value = row
         params[param] = value
-    ROWS = params["ROWS"]
-    START_CHATTING_DELAY = params["START_CHATTING_DELAY"]
-    JOINING_DELAY = params["JOINING_DELAY"]
-    MAILING_DELAY = params["MAILING_DELAY"]
+    ROWS = int(params["ROWS"])
+    START_CHATTING_DELAY = int(params["START_CHATTING_DELAY"])
+    JOINING_DELAY = int(params["JOINING_DELAY"])
+    MAILING_DELAY = int(params["MAILING_DELAY"])
     DEFAULT_NAME = params["DEFAULT_NAME"]
 
 
