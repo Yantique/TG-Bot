@@ -14,18 +14,19 @@ import os.path
 
 
 # Global params
-SPREADSHEET_ID = '17tx5NNJUuPxUucoayn4nb2hx4dlC9vcreEUzYICCMsY'
+SPREADSHEET_ID = '1xzDikfjhqYAiElgAfK4o0Z8e6Wf0RxD_yirg72sFAp8'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 ROWS = 1000
 START_CHATTING_DELAY = 30
 JOINING_DELAY = 120  # (2 min) задержка между вступлениями в группы
 MAILING_DELAY = 900  # (15 min) задержка между повторными отправками в секундах
 DEFAULT_NAME = 'Artem'
+REPEAT = False
 ACTIVE_ACCOUNTS = {}
 
 
 def setup(sheet):
-    global ROWS, START_CHATTING_DELAY, JOINING_DELAY, MAILING_DELAY, DEFAULT_NAME
+    global ROWS, START_CHATTING_DELAY, JOINING_DELAY, MAILING_DELAY, DEFAULT_NAME, REPEAT
     cell_range = f'settings!A1:B{ROWS}'
     rows = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     params = {}
@@ -37,9 +38,15 @@ def setup(sheet):
     JOINING_DELAY = int(params["JOINING_DELAY"])
     MAILING_DELAY = int(params["MAILING_DELAY"])
     DEFAULT_NAME = params["DEFAULT_NAME"]
+    REPEAT = params["REPEAT"]
+    if REPEAT == 'True':
+        REPEAT = True
+    else:
+        REPEAT = False
 
 
 async def auth(sheet):
+    print("Logging into accounts")
     cell_range = f'accounts!A1:K{ROWS}'
     rows = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values']
     status = {'values': [['Validating']] * (len(rows) - 1)}
@@ -66,6 +73,7 @@ async def auth(sheet):
 
 def proxy_distribution(sheet):
     # Getting the proxy list
+    print("Proxy distribution")
     cell_range = f'proxy!A1:B{ROWS}'
     proxies = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     proxies = list(map(lambda x: x[0], proxies))
@@ -94,6 +102,7 @@ def proxy_distribution(sheet):
     status = {'values': [['Proxy is set']] * len(bots)}
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="accounts!K2", valueInputOption="RAW",
                           body=status).execute()
+    print(f"[proxy_distribution]: Done!")
 
 
 async def acc_distribution(sheet):
@@ -103,12 +112,16 @@ async def acc_distribution(sheet):
     status = {'values': [[f'Status ({datetime.date(datetime.now())})']]}
     chat_ids = {'values': [['Chat id']]}
     bots = {'values': [['Bot']]}
+    prev = None
     for row_number, chat in enumerate(chats):
         link, chat_id, bot = chat[0:3]
         if len(bot) == 0:
             bot = random.choice(list(ACTIVE_ACCOUNTS.keys()))
             acc = ACTIVE_ACCOUNTS[bot]
-            await asyncio.sleep(random.randint(0, JOINING_DELAY))
+            if bot == prev:
+                await asyncio.sleep(random.randint(0, JOINING_DELAY))
+            else:
+                await asyncio.sleep(30)
             result = await acc.join_chat(link)
             if type(result) == int:
                 chat_ids['values'].append([result])
@@ -126,9 +139,12 @@ async def acc_distribution(sheet):
             status['values'].append(['Waiting for mailing'])
             chat_ids['values'].append([chat_id])
             bots['values'].append([bot])
+        print(f"{bot}: {link} - {status['values'][-1][0]}")
+        prev = bot
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="chats!B1", valueInputOption="RAW", body=chat_ids).execute()
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="chats!C1", valueInputOption="RAW", body=bots).execute()
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="chats!E1", valueInputOption="RAW", body=status).execute()
+    print(f"[acc_distribution]: Done!")
 
 
 async def setup_acc(sheet):
@@ -160,9 +176,12 @@ async def setup_acc(sheet):
                           body=photos).execute()
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="accounts!K1", valueInputOption="RAW",
                           body=status).execute()
+    print(f"[setup_acc]: Done!")
 
 
 async def send_messages(sheet):
+    print("Starting mailing")
+    prev = None
     cell_range = f'text!A1:B{ROWS}'
     messages = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     messages = array_to_dict(messages)
@@ -174,11 +193,17 @@ async def send_messages(sheet):
         if status == 'Waiting for mailing' or status == 'Message sent':
             acc = ACTIVE_ACCOUNTS[bot_number]
             name = await acc.get_my_name()
-            await asyncio.sleep(random.randint(0, START_CHATTING_DELAY))
+            if bot_number == prev:
+                await asyncio.sleep(random.randint(0, START_CHATTING_DELAY))
+            else:
+                await asyncio.sleep(30)
             result = await acc.send_message(link, messages[message_type].replace(DEFAULT_NAME, name))
             status = {'values': [[str(result)]]}
             sheet.values().update(spreadsheetId=SPREADSHEET_ID, range=f"chats!E{row_number + 2}", valueInputOption="RAW",
                                   body=status).execute()
+            print(f"{bot_number}: {link} - {str(result)}")
+            prev = bot_number
+    print(f"[send_messages]: Done!")
 
 
 def array_to_dict(messages):
@@ -227,7 +252,12 @@ def main():
     loop.run_until_complete(acc_distribution(sheet))
     while True:
         loop.run_until_complete(send_messages(sheet))
-        sleep(MAILING_DELAY)
+        if REPEAT:
+            sleep(MAILING_DELAY)
+            continue
+        else:
+            print("The mailing is over")
+            break
 
 
 if __name__ == '__main__':
