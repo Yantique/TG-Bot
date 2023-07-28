@@ -46,7 +46,7 @@ def setup(sheet):
 
 
 async def auth(sheet):
-    print("Logging into accounts")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Logging into accounts")
     cell_range = f'accounts!A1:K{ROWS}'
     rows = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values']
     status = {'values': [['Validating']] * (len(rows) - 1)}
@@ -68,12 +68,12 @@ async def auth(sheet):
         print(result, '\n')
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="accounts!K1", valueInputOption="RAW",
                           body=status).execute()
-    print('Authentication complete')
+    print('[auth] Done!')
 
 
 def proxy_distribution(sheet):
     # Getting the proxy list
-    print("Proxy distribution")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Proxy distribution")
     cell_range = f'proxy!A1:B{ROWS}'
     proxies = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     proxies = list(map(lambda x: x[0], proxies))
@@ -106,7 +106,7 @@ def proxy_distribution(sheet):
 
 
 async def acc_distribution(sheet):
-    print("Starting to join groups")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting to join groups")
     cell_range = f'chats!A1:E{ROWS}'
     chats = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     status = {'values': [[f'Status ({datetime.date(datetime.now())})']]}
@@ -115,6 +115,7 @@ async def acc_distribution(sheet):
     prev = None
     for row_number, chat in enumerate(chats):
         link, chat_id, bot = chat[0:3]
+        current_status = chat[4]
         if len(bot) == 0:
             bot = random.choice(list(ACTIVE_ACCOUNTS.keys()))
             acc = ACTIVE_ACCOUNTS[bot]
@@ -136,10 +137,10 @@ async def acc_distribution(sheet):
                 chat_ids['values'].append([])
                 bots['values'].append([])
         else:
-            status['values'].append(['Waiting for mailing'])
+            status['values'].append([current_status])
             chat_ids['values'].append([chat_id])
             bots['values'].append([bot])
-        print(f"{bot}: {link} - {status['values'][-1][0]}")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] {bot}: {link} - {status['values'][-1][0]}")
         prev = bot
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="chats!B1", valueInputOption="RAW", body=chat_ids).execute()
     sheet.values().update(spreadsheetId=SPREADSHEET_ID, range="chats!C1", valueInputOption="RAW", body=bots).execute()
@@ -148,7 +149,7 @@ async def acc_distribution(sheet):
 
 
 async def setup_acc(sheet):
-    print("Starting to set up accounts")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting to set up accounts")
     cell_range = f'accounts!A1:K{ROWS}'
     bots = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
     photos = {'values': [['Photo']]}
@@ -164,7 +165,7 @@ async def setup_acc(sheet):
                 if len(photo) > 0:
                     result = get_photo(photo)
                     if result == 'Success':
-                        await acc.set_user_profile(photo_path="temp/photo.jpg")
+                        await acc.set_user_profile(photo_path=f"temp/photo.{photo.split('.')[-1]}")
                     else:
                         status['values'].append([result])
             except Exception as e:
@@ -180,7 +181,7 @@ async def setup_acc(sheet):
 
 
 async def send_messages(sheet):
-    print("Starting mailing")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting mailing")
     prev = None
     cell_range = f'text!A1:B{ROWS}'
     messages = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=cell_range).execute()['values'][1:]
@@ -190,7 +191,7 @@ async def send_messages(sheet):
     for row_number, chat in enumerate(chats):
         chat_id, bot_number, message_type, status = chat[1:]
         link = chat[0]
-        if status == 'Waiting for mailing' or status == 'Message sent':
+        if (status == 'Waiting for mailing' or status == 'Message sent' or status == 'Skipped') and message_type != 'Skip':
             acc = ACTIVE_ACCOUNTS[bot_number]
             name = await acc.get_my_name()
             if bot_number == prev:
@@ -201,8 +202,14 @@ async def send_messages(sheet):
             status = {'values': [[str(result)]]}
             sheet.values().update(spreadsheetId=SPREADSHEET_ID, range=f"chats!E{row_number + 2}", valueInputOption="RAW",
                                   body=status).execute()
-            print(f"{bot_number}: {link} - {str(result)}")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] {bot_number}: {link} - {str(result)}")
             prev = bot_number
+        elif message_type == 'Skip':
+            status = {'values': [['Skipped']]}
+            sheet.values().update(spreadsheetId=SPREADSHEET_ID, range=f"chats!E{row_number + 2}",
+                                  valueInputOption="RAW",
+                                  body=status).execute()
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] {bot_number}: {link} - Skipped")
     print(f"[send_messages]: Done!")
 
 
@@ -217,7 +224,7 @@ def get_photo(link):
     try:
         response = requests.get(link)
         if response.status_code == 200:
-            file_name = "photo.jpg"
+            file_name = f"photo.{link.split('.')[-1]}"
             with open(f"temp/{file_name}", 'wb') as file:
                 file.write(response.content)
             return "Success"
@@ -256,7 +263,7 @@ def main():
             sleep(MAILING_DELAY)
             continue
         else:
-            print("The mailing is over")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] The mailing is over")
             break
 
 
