@@ -14,7 +14,7 @@ import os.path
 
 
 # Global params
-SPREADSHEET_ID = '1xzDikfjhqYAiElgAfK4o0Z8e6Wf0RxD_yirg72sFAp8'
+SPREADSHEET_ID = '17tx5NNJUuPxUucoayn4nb2hx4dlC9vcreEUzYICCMsY'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 ROWS = 1000
 START_CHATTING_DELAY = 30
@@ -115,7 +115,10 @@ async def acc_distribution(sheet):
     prev = None
     for row_number, chat in enumerate(chats):
         link, chat_id, bot = chat[0:3]
-        current_status = chat[4]
+        if len(chat) > 4:
+            current_status = chat[4]
+        else:
+            current_status = 'default'
         if len(bot) == 0:
             bot = random.choice(list(ACTIVE_ACCOUNTS.keys()))
             acc = ACTIVE_ACCOUNTS[bot]
@@ -194,6 +197,8 @@ async def send_messages(sheet):
         if (status == 'Waiting for mailing' or status == 'Message sent' or status == 'Skipped') and message_type != 'Skip':
             acc = ACTIVE_ACCOUNTS[bot_number]
             name = await acc.get_my_name()
+            if name is None:
+                name = ''
             if bot_number == prev:
                 await asyncio.sleep(random.randint(0, START_CHATTING_DELAY))
             else:
@@ -210,6 +215,7 @@ async def send_messages(sheet):
                                   valueInputOption="RAW",
                                   body=status).execute()
             print(f"[{datetime.now().strftime('%H:%M:%S')}] {bot_number}: {link} - Skipped")
+            await asyncio.sleep(1.1)
     print(f"[send_messages]: Done!")
 
 
