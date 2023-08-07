@@ -14,7 +14,7 @@ import os.path
 
 
 # Global params
-SPREADSHEET_ID = '17tx5NNJUuPxUucoayn4nb2hx4dlC9vcreEUzYICCMsY'
+SPREADSHEET_ID = '1xzDikfjhqYAiElgAfK4o0Z8e6Wf0RxD_yirg72sFAp8'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 ROWS = 1000
 START_CHATTING_DELAY = 30
@@ -119,8 +119,9 @@ async def acc_distribution(sheet):
             current_status = chat[4]
         else:
             current_status = 'default'
-        if len(bot) == 0:
-            bot = random.choice(list(ACTIVE_ACCOUNTS.keys()))
+        if len(bot) == 0 or current_status == 'Manual select':
+            if len(bot) == 0:
+                bot = random.choice(list(ACTIVE_ACCOUNTS.keys()))
             acc = ACTIVE_ACCOUNTS[bot]
             if bot == prev:
                 await asyncio.sleep(random.randint(0, JOINING_DELAY))
